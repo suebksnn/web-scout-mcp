@@ -1,14 +1,14 @@
-# Web Search MCP Server - Technical Overview
+# Web Scout MCP Server - Technical Overview
 
 ## Project Overview
 
-The Web Search MCP Server is a Model Context Protocol (MCP) server implementation that provides web search and content fetching capabilities. It allows AI assistants and other MCP clients to search the web using DuckDuckGo and fetch content from web pages, enabling them to access up-to-date information from the internet.
+The Web Scout MCP Server is a Model Context Protocol (MCP) server implementation that provides web search and content extracting capabilities. It allows AI assistants and other MCP clients to search the web using DuckDuckGo and extract content from web pages, enabling them to access up-to-date information from the internet.
 
 ## Key Features
 
-- **DuckDuckGo Search**: Performs web searches using DuckDuckGo's HTML interface
-- **Web Content Fetching**: Retrieves and parses content from web pages
-- **Multiple URL Support**: Can fetch content from multiple URLs in parallel
+- **DuckDuckGo Search**: Performs web searches using DuckDuckGo
+- **Web Content Fetching**: Retrieves and extracts content from web pages
+- **Multiple URL Support**: Can extract content from multiple URLs in parallel
 - **Memory Management**: Implements optimizations to prevent memory issues
 - **Rate Limiting**: Prevents API blocks by limiting request frequency
 
@@ -29,8 +29,8 @@ The project is structured as a TypeScript Node.js application that implements th
 
 The server is implemented using the `@modelcontextprotocol/sdk` package and exposes two main tools:
 
-1. `web_search`: Performs web searches using DuckDuckGo
-2. `get_content`: Fetches and parses content from web pages
+1. `DuckDuckGoWebSearch`: Performs web searches using DuckDuckGo
+2. `UrlContentExtractor`: Fetches and parses content from web pages
 
 The server uses the StdioServerTransport for communication, making it compatible with various MCP clients.
 
@@ -75,10 +75,10 @@ async search(query: string, ctx: Context, maxResults: number = 10): Promise<Sear
 
 This class handles fetching and parsing content from web pages:
 
-- Fetches content using axios
+- Extracts content using axios
 - Processes HTML using cheerio to extract text
 - Implements memory management optimizations
-- Supports fetching multiple URLs in parallel
+- Supports extracting content from multiple URLs in parallel
 - Uses batch processing based on available memory
 
 #### Memory Management
@@ -146,13 +146,13 @@ async acquire(): Promise<void> {
 ### Installation
 
 ```bash
-npm install -g @pinkpixel/web-search-mcp
+npm install -g @pinkpixel/web-scout-mcp
 ```
 
 ### Command Line Usage
 
 ```bash
-mcp-server-web
+web-scout-mcp
 ```
 
 ### Integration with MCP Clients
@@ -166,7 +166,7 @@ Add to your MCP client's `config.json`:
       "command": "npx",
       "args": [
         "-y",
-        "@pinkpixel/web-search-mcp"
+        "@pinkpixel/web-scout-mcp"
       ]
     }
   }
@@ -175,7 +175,7 @@ Add to your MCP client's `config.json`:
 
 ## Tool Usage
 
-### web_search
+### DuckDuckGoWebSearch
 
 Search DuckDuckGo and return formatted results.
 
@@ -183,9 +183,9 @@ Parameters:
 - `query` (string): The search query string
 - `maxResults` (number, optional): Maximum number of results to return (default: 10)
 
-### get_content
+### UrlContentExtractor
 
-Fetch and parse content from one or more webpage URLs.
+Retrieve and extract content from one or more webpage URLs.
 
 Parameters:
 - `url`: Either a single URL string or an array of URL strings
@@ -194,8 +194,8 @@ Parameters:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/web-search-mcp.git
-cd web-search-mcp
+git clone https://github.com/pinkpixe-dev/web-scout-mcp.git
+cd web-scout-mcp
 
 # Install dependencies
 npm install

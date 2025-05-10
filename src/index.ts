@@ -22,10 +22,10 @@ interface Context {
   error(message: string): Promise<void>;
 }
 
-const WEB_SEARCH: Tool = {
-  name: "web_search",
-  description:
-    "Performs a web search using DuckDuckGo and returns formatted results.",
+const DuckDuckGoWebSearch: Tool = {
+  name: "DuckDuckGoWebSearch",
+  description: 
+        "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
   inputSchema: {
     type: "object",
     properties: {
@@ -42,10 +42,10 @@ const WEB_SEARCH: Tool = {
   }
 };
 
-const GET_CONTENT: Tool = {
-  name: "get_content",
+const UrlContentExtractor: Tool = {
+  name: "UrlContentExtractor",
   description:
-    "Fetch and parse content from one or more webpage URLs.",
+        "Fetches and extracts content from a given webpage URL. Input the URL of the webpage you want to extract content from as a string using the url parameter. You can also input an array of URLs to fetch content from multiple pages at once.",
   inputSchema: {
     type: "object",
     properties: {
@@ -68,7 +68,7 @@ const GET_CONTENT: Tool = {
 // Server implementation
 const server = new Server(
   {
-    name: "web-search",
+    name: "web-scout",
     version: "1.0.0",
   },
   {
@@ -437,7 +437,7 @@ class WebContentFetcher {
 
     // Tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [WEB_SEARCH, GET_CONTENT],
+  tools: [DuckDuckGoWebSearch, UrlContentExtractor],
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
@@ -449,7 +449,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
      }
 
   switch (name) {
-    case "web_search": {
+    case "DuckDuckGoWebSearch": {
       if (typeof args !== "object" || args === null || typeof args.query !== "string") {
         throw new McpError(
           ErrorCode.InvalidParams,
@@ -473,7 +473,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       };
     }
 
-    case "get_content": {
+    case "UrlContentExtractor": {
       if (typeof args !== "object" || args === null) {
         throw new McpError(
           ErrorCode.InvalidParams,
@@ -532,7 +532,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-    console.error("Web Search MCP Server running on stdio");
+    console.error("Web Scout MCP Server running on stdio");
   }
 
 runServer().catch((error) => {

@@ -1,7 +1,7 @@
 {
-  "name": "@pinkpixel/web-search-mcp",
+  "name": "@pinkpixel/web-scout-mcp",
   "version": "1.0.0",
-  "description": "MCP server for web search and content fetching with multiple URL support and memory optimizations",
+  "description": "MCP server for web search and content extraction with multiple URL support and memory optimizations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -16,13 +16,19 @@
     "start": "node dist/index.js",
     "prepublishOnly": "npm run build"
   },
+    "repository": {
+		"type": "git",
+		"url": "git+https://github.com/pinkpixel-dev/web-scout-mcp.git"
+  },
   "keywords": [
     "mcp",
     "model-context-protocol",
     "web-search",
-    "web-content"
+    "web-content",
+    "web-scraping",
+    "content-extraction"
   ],
-  "author": "",
+  "author": "Pink Pixel",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.1",

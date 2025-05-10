@@ -1,6 +1,6 @@
-# Contributing to Web Search MCP Server
+# Contributing to Web Scout MCP Server
 
-Thank you for considering contributing to the Web Search MCP Server! This document provides guidelines and instructions for contributing to this project.
+Thank you for considering contributing to the Web Scout MCP Server! This document provides guidelines and instructions for contributing to this project.
 
 ## Code of Conduct
 
@@ -49,8 +49,8 @@ If you have an idea for an enhancement, please create an issue on GitHub with th
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/web-search-mcp.git
-cd web-search-mcp
+git clone https://github.com/pinkpixel-dev/web-scout-mcp.git
+cd web-scout-mcp
 
 # Install dependencies
 npm install
