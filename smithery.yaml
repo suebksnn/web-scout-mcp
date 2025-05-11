@@ -3,8 +3,8 @@ startCommand:
   configSchema: object
   commandFunction: |-
     (config) => ({
-      "command": "node",
-        "args": ["dist/index.js"],
+      "command": "npx",
+        "args": ["@pinkpixel-dev/web-scout-mcp"],
         "env": {}
   {
   name: "web-scout",
