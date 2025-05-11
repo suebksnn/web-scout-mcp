@@ -14,7 +14,6 @@ import * as os from "os";
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as url from "url";
 
 // Define the Context interface if not already defined
 interface Context {
@@ -68,11 +67,12 @@ const UrlContentExtractor: Tool = {
 const server = new Server(
   {
     name: "web-scout",
+    description: "A web scout tool for searching and extracting content from the web.",
     version: "1.0.0",
   },
   {
     capabilities: {
-      tools: {},
+      tools: {DuckDuckGoWebSearch, UrlContentExtractor},      
     },
   },
 );
@@ -479,7 +479,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
         );
       }
 
-      const fetcher = new WebContentFetcher();
+    const fetcher = new WebContentFetcher();      
       if (typeof args.url === "string") {
         const contextAdapter: Context = {
           error: async (message: string) => console.error(message),
