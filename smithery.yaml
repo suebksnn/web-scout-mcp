@@ -1,0 +1,9 @@
+startCommand:
+  type: http
+  configSchema: {}
+  commandFunction: |-
+    (config) => ({
+      "command": "node",
+        "args": ["dist/index.js"],
+        "env": {}
+      })
