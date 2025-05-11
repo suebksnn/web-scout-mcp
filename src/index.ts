@@ -18,7 +18,6 @@ import * as url from "url";
 
 // Define the Context interface if not already defined
 interface Context {
-  info(message: string): Promise<void>;
   error(message: string): Promise<void>;
 }
 
@@ -170,7 +169,7 @@ class DuckDuckGoSearcher {
         kl: "",
       };
 
-      await ctx.info(`Searching DuckDuckGo for: ${query}`);
+      await ctx.error(`Searching DuckDuckGo for: ${query}`);
 
       const response = await axios.post(
         DuckDuckGoSearcher.BASE_URL,
@@ -222,7 +221,7 @@ class DuckDuckGoSearcher {
         }
       });
 
-      await ctx.info(`Successfully found ${results.length} results`);
+      await ctx.error(`Successfully found ${results.length} results`);
       return results;
 
     } catch (error) {
@@ -350,7 +349,7 @@ class WebContentFetcher {
     try {
       await this.rateLimiter.acquire();
 
-      await ctx.info(`Fetching content from: ${urlStr}`);
+      await ctx.error(`Fetching content from: ${urlStr}`);
 
       const response = await axios.get(urlStr, {
         headers: {
@@ -363,7 +362,7 @@ class WebContentFetcher {
 
       const text = await this.processHtml(response.data);
 
-      await ctx.info(`Successfully fetched and parsed content (${text.length} characters)`);
+      await ctx.error(`Successfully fetched and parsed content (${text.length} characters)`);
       return text;
 
     } catch (error) {
@@ -392,12 +391,12 @@ class WebContentFetcher {
       batchSize = 5; // Increase batch size if plenty of memory
     }
     
-    await ctx.info(`Processing ${urls.length} URLs in batches of ${batchSize}`);
+    await ctx.error(`Processing ${urls.length} URLs in batches of ${batchSize}`);
 
     // Process URLs in batches to manage memory
     for (let i = 0; i < urls.length; i += batchSize) {
       const batch = urls.slice(i, i + batchSize);
-      await ctx.info(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(urls.length/batchSize)}`);
+      await ctx.error(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(urls.length/batchSize)}`);
       
       // Process batch in parallel
       const batchResults = await Promise.all(
@@ -461,7 +460,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const maxResults = typeof args.maxResults === "number" ? args.maxResults : 10;
 
       const contextAdapter: Context = {
-        info: async (message: string) => console.info(message),
         error: async (message: string) => console.error(message),
       };
       const searchResults = await new DuckDuckGoSearcher().search(query, contextAdapter, maxResults);
@@ -484,7 +482,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const fetcher = new WebContentFetcher();
       if (typeof args.url === "string") {
         const contextAdapter: Context = {
-          info: async (message: string) => console.info(message),
           error: async (message: string) => console.error(message),
         };
         const result = await fetcher.fetchAndParse(args.url, contextAdapter);
@@ -494,7 +491,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
         };
       } else if (Array.isArray(args.url)) {
         const contextAdapter: Context = {
-          info: async (message: string) => console.info(message),
           error: async (message: string) => console.error(message),
         };
         const results = await fetcher.fetchMultipleUrls(args.url, contextAdapter);
