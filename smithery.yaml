@@ -1,6 +1,11 @@
 startCommand:
   type: stdio
-  configSchema: 
+  configSchema: object
+  commandFunction: |-
+    (config) => ({
+      "command": "node",
+        "args": ["dist/index.js"],
+        "env": {}
   {
   name: "web-scout",
   description: "A web scout tool for searching and extracting content from the web.",
@@ -9,21 +14,6 @@ startCommand:
   capabilities: {
     tools: {DuckDuckGoWebSearch, UrlContentExtractor},      
     }
-    "tools": {
-      "DuckDuckGoWebSearch": {
-        "type": "web-search",
-        "description": "A tool for searching the web using DuckDuckGo."
-      },
-      "UrlContentExtractor": {
-        "type": "content-extractor",
-        "description": "A tool for extracting content from a given URL."
-      }
-    }
-  command: |-
-    (config) => ({
-      "command": "node",
-        "args": ["dist/index.js"],
-        "env": {}
   build:
     dockerfile: "./Dockerfile"
     dockerBuildPath: "./app"
