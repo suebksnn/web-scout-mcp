@@ -3,13 +3,13 @@ startCommand:
   configSchema: object
   commandFunction: |-
     (config) => ({
-      "command": "npx",
-        "args": ["@pinkpixel-dev/web-scout-mcp"],
+      "command": "node",
+        "args": ["dist/index.js"],
         "env": {}
   {
   name: "web-scout",
-  description: "A web scout tool for searching and extracting content from the web.",
-  version: "1.1.0",
+  description: "An MCP server with tools for searching the web with DuckDuckGo and extracting content from multiple URLs.",
+  version: "1.3.0",
   }
   capabilities: {
     tools: {DuckDuckGoWebSearch, UrlContentExtractor},      

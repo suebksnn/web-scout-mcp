@@ -6,7 +6,7 @@ import {
   CallToolRequestSchema,
   ErrorCode,
   McpError,
-  ToolSchema,  
+  ToolSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
@@ -20,7 +20,6 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Define the Context interface if not already defined
 interface Context {
-  info(message: string): Promise<void>;
   error(message: string): Promise<void>;
 }
 
@@ -73,27 +72,6 @@ enum ToolName {
   URLCONTENTEXTRACTOR = "UrlContentExtractor",
 }
 
-// Server implementation
-export const createServer = (): Server => {
-  const server = new Server(
-    {
-      name: "web-scout",
-      version: "1.1.0",
-    },
-    {
-      capabilities: {
-        prompts: {},
-        resources: {},
-        tools: {},
-        logging: {},
-        completions: {},
-      },
-    }
-  );
-  return server;
-};
-
-// Define interfaces for the data structures
 interface SearchResult {
   title: string;
   link: string;
@@ -185,8 +163,6 @@ class DuckDuckGoSearcher {
         kl: "",
       };
 
-      await ctx.info(`Searching DuckDuckGo for: ${query}`);
-
       const response = await axios.post(
         DuckDuckGoSearcher.BASE_URL,
         new URLSearchParams(data),
@@ -237,7 +213,6 @@ class DuckDuckGoSearcher {
         }
       });
 
-      await ctx.info(`Successfully found ${results.length} results`);
       return results;
 
     } catch (error) {
@@ -365,8 +340,6 @@ class WebContentFetcher {
     try {
       await this.rateLimiter.acquire();
 
-      await ctx.info(`Fetching content from: ${urlStr}`);
-
       const response = await axios.get(urlStr, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -377,8 +350,6 @@ class WebContentFetcher {
       });
 
       const text = await this.processHtml(response.data);
-
-      await ctx.info(`Successfully fetched and parsed content (${text.length} characters)`);
       return text;
 
     } catch (error) {
@@ -406,13 +377,10 @@ class WebContentFetcher {
     } else if (memoryStats.usagePercentage < 30) {
       batchSize = 5; // Increase batch size if plenty of memory
     }
-    
-    await ctx.info(`Processing ${urls.length} URLs in batches of ${batchSize}`);
 
     // Process URLs in batches to manage memory
     for (let i = 0; i < urls.length; i += batchSize) {
       const batch = urls.slice(i, i + batchSize);
-      await ctx.info(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(urls.length/batchSize)}`);
       
       // Process batch in parallel
       const batchResults = await Promise.all(
@@ -450,30 +418,23 @@ class WebContentFetcher {
   }
 }
 
-    // Tool handlers
-  const server = createServer();
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const tools: Tool[] = [
-      {
-        name: ToolName.DUCKDUCKGOWEBSEARCH,
-        description: "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
-        inputSchema: zodToJsonSchema(z.object({
-          query: z.string(),
-          maxResults: z.number().optional(),
-        }).strict()) as ToolInput,
+export const createServer = (): Server => {
+  const server = new Server(
+    {
+      name: "web-scout",
+      version: "1.3.0",
+    },
+    {
+      capabilities: {
+        tools: {},
       },
-      {
-        name: ToolName.URLCONTENTEXTRACTOR,
-        description: "Fetches and extracts content from a given webpage URL. Input the URL of the webpage you want to extract content from as a string using the url parameter. You can also input an array of URLs to fetch content from multiple pages at once.",
-        inputSchema: zodToJsonSchema(z.object({
-          url: z.union([z.string(), z.array(z.string())])
-        }).strict()) as ToolInput,        
-      },
-    ];
+    }
+  );
+  return server;
+};
 
-    return { tools };
-  });
-
+// Tool handlers
+const server = createServer();
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   try {
     const { name, arguments: args } = request.params;
@@ -489,7 +450,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const maxResults = typeof args.maxResults === "number" ? args.maxResults : 10;
 
       const contextAdapter: Context = {
-        info: async (message: string) => console.info(message),
         error: async (message: string) => console.error(message),
       };
       const searchResults = await new DuckDuckGoSearcher().search(query, contextAdapter, maxResults);
@@ -518,7 +478,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const fetcher = new WebContentFetcher();
       if (typeof args.url === "string") {
         const contextAdapter: Context = {
-          info: async (message: string) => console.info(message),
           error: async (message: string) => console.error(message),
         };
         const result = await fetcher.fetchAndParse(args.url, contextAdapter);
@@ -528,7 +487,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
         };
       } else if (Array.isArray(args.url)) {
         const contextAdapter: Context = {
-          info: async (message: string) => console.info(message),
           error: async (message: string) => console.error(message),
         };
         const results = await fetcher.fetchMultipleUrls(args.url, contextAdapter);
@@ -561,14 +519,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   }
 });
 
-async function runServer() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-    console.error("Web Scout MCP Server running on stdio");
-  }
+interface RegisterToolsFunction {
+  (tools: Tool[]): void;
+}
 
-runServer().catch((error) => {
-  console.error("Error starting server:", error);
-  process.exit(1);
-});
+declare const registerTools: RegisterToolsFunction;
 
+registerTools([
+  DuckDuckGoWebSearch,
+  UrlContentExtractor
+]);
+
+    // Tool handlers
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const tools: Tool[] = [
+      {
+        name: ToolName.DUCKDUCKGOWEBSEARCH,
+        description: "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
+        inputSchema: zodToJsonSchema(z.object({
+          query: z.string(),
+          maxResults: z.number().optional(),
+        }).strict()) as ToolInput,
+      },
+      {
+        name: ToolName.URLCONTENTEXTRACTOR,
+        description: "Fetches and extracts content from a given webpage URL. Input the URL of the webpage you want to extract content from as a string using the url parameter. You can also input an array of URLs to fetch content from multiple pages at once.",
+        inputSchema: zodToJsonSchema(z.object({
+          url: z.union([z.string(), z.array(z.string())])
+        }).strict()) as ToolInput,        
+      },
+    ];
+
+    return { tools };
+  });
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
