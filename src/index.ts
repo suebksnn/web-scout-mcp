@@ -6,7 +6,6 @@ import {
   CallToolRequestSchema,
   ErrorCode,
   McpError,
-  ToolSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
@@ -15,8 +14,7 @@ import * as os from "os";
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import * as url from "url";
 
 // Define the Context interface if not already defined
 interface Context {
@@ -25,7 +23,7 @@ interface Context {
 
 const DuckDuckGoWebSearch: Tool = {
   name: "DuckDuckGoWebSearch",
-  description:
+  description: 
         "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
   inputSchema: {
     type: "object",
@@ -53,8 +51,8 @@ const UrlContentExtractor: Tool = {
       url: {
         oneOf: [
           { type: "string", description: "The webpage URL to fetch content from" },
-          {
-            type: "array",
+          { 
+            type: "array", 
             items: { type: "string" },
             description: "List of webpage URLs to get content from"
           }
@@ -64,14 +62,22 @@ const UrlContentExtractor: Tool = {
     required: ["url"]
   }
 };
-const ToolInputSchema = ToolSchema.shape.inputSchema;
-type ToolInput = z.infer<typeof ToolInputSchema>;
 
-enum ToolName {
-  DUCKDUCKGOWEBSEARCH = "DuckDuckGoWebSearch",
-  URLCONTENTEXTRACTOR = "UrlContentExtractor",
-}
 
+// Server implementation
+const server = new Server(
+  {
+    name: "web-scout",
+    version: "1.0.0",
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  },
+);
+
+// Define interfaces for the data structures
 interface SearchResult {
   title: string;
   link: string;
@@ -239,7 +245,7 @@ class WebContentFetcher {
 
   constructor() {
     this.rateLimiter = new RateLimiter(20);
-
+    
     // Set up cleanup on process exit
     process.on('exit', this.cleanup.bind(this));
     process.on('SIGINT', () => {
@@ -276,32 +282,32 @@ class WebContentFetcher {
   private async processHtml(html: string): Promise<string> {
     // Process in memory or offload to temp file based on size
     const memoryStats = await this.getMemoryStats();
-
+    
     if (html.length > this.MAX_IN_MEMORY_SIZE || memoryStats.usagePercentage > 70) {
       // Write to temporary file and process in chunks
       const tempFilePath = path.join(os.tmpdir(), `mcp-fetch-${uuidv4()}.html`);
       this.tempFiles.push(tempFilePath);
-
+      
       await fs.writeFile(tempFilePath, html);
-
+      
       // Process the file in a memory-efficient way
       const fileData = await fs.readFile(tempFilePath, 'utf-8');
       const $ = cheerio.load(fileData);
-
+      
       // Remove script and style elements
       $('script, style, nav, header, footer').remove();
-
+      
       // Get the text content
       let text = $.text();
-
+      
       // Clean up the text
       text = text.replace(/\s+/g, ' ').trim();
-
+      
       // Truncate if too long
       if (text.length > 8000) {
         text = text.substring(0, 8000) + "... [content truncated]";
       }
-
+      
       // Remove the temp file
       try {
         await fs.unlink(tempFilePath);
@@ -312,26 +318,26 @@ class WebContentFetcher {
       } catch (err) {
         // File will be cleaned up on exit
       }
-
+      
       return text;
     } else {
       // Process in memory
       const $ = cheerio.load(html);
-
+      
       // Remove script and style elements
       $('script, style, nav, header, footer').remove();
-
+      
       // Get the text content
       let text = $.text();
-
+      
       // Clean up the text
       text = text.replace(/\s+/g, ' ').trim();
-
+      
       // Truncate if too long
       if (text.length > 8000) {
         text = text.substring(0, 8000) + "... [content truncated]";
       }
-
+      
       return text;
     }
   }
@@ -350,6 +356,7 @@ class WebContentFetcher {
       });
 
       const text = await this.processHtml(response.data);
+
       return text;
 
     } catch (error) {
@@ -369,7 +376,7 @@ class WebContentFetcher {
   async fetchMultipleUrls(urls: string[], ctx: Context): Promise<Record<string, string>> {
     const results: Record<string, string> = {};
     const memoryStats = await this.getMemoryStats();
-
+    
     // Determine batch size based on available memory
     let batchSize = 3; // Default
     if (memoryStats.usagePercentage > 70) {
@@ -377,11 +384,11 @@ class WebContentFetcher {
     } else if (memoryStats.usagePercentage < 30) {
       batchSize = 5; // Increase batch size if plenty of memory
     }
-
+  
     // Process URLs in batches to manage memory
     for (let i = 0; i < urls.length; i += batchSize) {
       const batch = urls.slice(i, i + batchSize);
-
+      
       // Process batch in parallel
       const batchResults = await Promise.all(
         batch.map(async (url) => {
@@ -390,65 +397,56 @@ class WebContentFetcher {
             return { url, content };
           } catch (error) {
             // Handle errors for individual URLs
-            return {
-              url,
-              content: `Error processing URL: ${(error as Error).message}`
+            return { 
+              url, 
+              content: `Error processing URL: ${(error as Error).message}` 
             };
           }
         })
       );
-
+      
       // Add batch results to the overall results
       for (const { url, content } of batchResults) {
         results[url] = content;
       }
-
+      
       // Force garbage collection if available (Node with --expose-gc flag)
       if (global.gc) {
         global.gc();
       }
-
+      
       // Small delay between batches to allow system to recover
       if (i + batchSize < urls.length) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-
+    
     return results;
   }
 }
 
-export const createServer = (): Server => {
-  const server = new Server(
-    {
-      name: "web-scout",
-      version: "1.4.0",
-    },
-    {
-      capabilities: {
-        tools: {
-          DuckDuckGoWebSearch: true,
-          UrlContentExtractor: true
-        },
-      },
-    }
-  );
-  return server;
-};
+    // Tool handlers
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: [DuckDuckGoWebSearch, UrlContentExtractor],
+}));
 
-// Tool handlers
-const server = createServer();
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   try {
     const { name, arguments: args } = request.params;
 
-    if (name === ToolName.DUCKDUCKGOWEBSEARCH) {
-      if (typeof args !== "object" || args === null) {
-        throw new McpError(ErrorCode.InvalidParams, "Invalid arguments provided");
+    if (!args) {
+      throw new Error("No arguments provided");
+     }
+
+  switch (name) {
+    case "DuckDuckGoWebSearch": {
+      if (typeof args !== "object" || args === null || typeof args.query !== "string") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "Invalid search arguments. Expected { query: string, maxResults?: number }"
+        );
       }
-      if (typeof args.query !== "string") {
-        throw new McpError(ErrorCode.InvalidParams, "Query must be a string");
-      }
+
       const query = args.query;
       const maxResults = typeof args.maxResults === "number" ? args.maxResults : 10;
 
@@ -464,13 +462,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    if (name === ToolName.URLCONTENTEXTRACTOR) {
-      if (typeof args !== "object" || args === null) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "Invalid fetch_content arguments. Expected { url: string | string[] }"
-        );
-      }
+    case "UrlContentExtractor": {
       if (typeof args !== "object" || args === null) {
         throw new McpError(
           ErrorCode.InvalidParams,
@@ -505,10 +497,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     }
 
-    return {
-      content: [{ type: "text", text: `Unknown tool: ${name}` }],
-      isError: true,
-    };
+      default:
+        return {
+          content: [{ type: "text", text: `Unknown tool: ${name}` }],
+          isError: true,
+        };
+    }
   } catch (error) {
     return {
       content: [
@@ -522,30 +516,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-// Tools are registered through the server capabilities
+async function runServer() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+    console.error("Web Scout MCP Server running on stdio");
+  }
 
-// Register the ListToolsRequestSchema handler
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools: Tool[] = [
-    {
-      name: ToolName.DUCKDUCKGOWEBSEARCH,
-      description: "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
-      inputSchema: zodToJsonSchema(z.object({
-        query: z.string(),
-        maxResults: z.number().optional(),
-      }).strict()) as ToolInput,
-    },
-    {
-      name: ToolName.URLCONTENTEXTRACTOR,
-      description: "Fetches and extracts content from a given webpage URL. Input the URL of the webpage you want to extract content from as a string using the url parameter. You can also input an array of URLs to fetch content from multiple pages at once.",
-      inputSchema: zodToJsonSchema(z.object({
-        url: z.union([z.string(), z.array(z.string())])
-      }).strict()) as ToolInput,
-    },
-  ];
-
-  return { tools };
-});
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
+runServer().catch((error) => {
+  console.error("Error starting server:", error);
+  process.exit(1);
+  });
