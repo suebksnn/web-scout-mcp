@@ -25,7 +25,7 @@ interface Context {
 
 const DuckDuckGoWebSearch: Tool = {
   name: "DuckDuckGoWebSearch",
-  description: 
+  description:
         "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
   inputSchema: {
     type: "object",
@@ -53,8 +53,8 @@ const UrlContentExtractor: Tool = {
       url: {
         oneOf: [
           { type: "string", description: "The webpage URL to fetch content from" },
-          { 
-            type: "array", 
+          {
+            type: "array",
             items: { type: "string" },
             description: "List of webpage URLs to get content from"
           }
@@ -239,7 +239,7 @@ class WebContentFetcher {
 
   constructor() {
     this.rateLimiter = new RateLimiter(20);
-    
+
     // Set up cleanup on process exit
     process.on('exit', this.cleanup.bind(this));
     process.on('SIGINT', () => {
@@ -276,32 +276,32 @@ class WebContentFetcher {
   private async processHtml(html: string): Promise<string> {
     // Process in memory or offload to temp file based on size
     const memoryStats = await this.getMemoryStats();
-    
+
     if (html.length > this.MAX_IN_MEMORY_SIZE || memoryStats.usagePercentage > 70) {
       // Write to temporary file and process in chunks
       const tempFilePath = path.join(os.tmpdir(), `mcp-fetch-${uuidv4()}.html`);
       this.tempFiles.push(tempFilePath);
-      
+
       await fs.writeFile(tempFilePath, html);
-      
+
       // Process the file in a memory-efficient way
       const fileData = await fs.readFile(tempFilePath, 'utf-8');
       const $ = cheerio.load(fileData);
-      
+
       // Remove script and style elements
       $('script, style, nav, header, footer').remove();
-      
+
       // Get the text content
       let text = $.text();
-      
+
       // Clean up the text
       text = text.replace(/\s+/g, ' ').trim();
-      
+
       // Truncate if too long
       if (text.length > 8000) {
         text = text.substring(0, 8000) + "... [content truncated]";
       }
-      
+
       // Remove the temp file
       try {
         await fs.unlink(tempFilePath);
@@ -312,26 +312,26 @@ class WebContentFetcher {
       } catch (err) {
         // File will be cleaned up on exit
       }
-      
+
       return text;
     } else {
       // Process in memory
       const $ = cheerio.load(html);
-      
+
       // Remove script and style elements
       $('script, style, nav, header, footer').remove();
-      
+
       // Get the text content
       let text = $.text();
-      
+
       // Clean up the text
       text = text.replace(/\s+/g, ' ').trim();
-      
+
       // Truncate if too long
       if (text.length > 8000) {
         text = text.substring(0, 8000) + "... [content truncated]";
       }
-      
+
       return text;
     }
   }
@@ -369,7 +369,7 @@ class WebContentFetcher {
   async fetchMultipleUrls(urls: string[], ctx: Context): Promise<Record<string, string>> {
     const results: Record<string, string> = {};
     const memoryStats = await this.getMemoryStats();
-    
+
     // Determine batch size based on available memory
     let batchSize = 3; // Default
     if (memoryStats.usagePercentage > 70) {
@@ -381,7 +381,7 @@ class WebContentFetcher {
     // Process URLs in batches to manage memory
     for (let i = 0; i < urls.length; i += batchSize) {
       const batch = urls.slice(i, i + batchSize);
-      
+
       // Process batch in parallel
       const batchResults = await Promise.all(
         batch.map(async (url) => {
@@ -390,30 +390,30 @@ class WebContentFetcher {
             return { url, content };
           } catch (error) {
             // Handle errors for individual URLs
-            return { 
-              url, 
-              content: `Error processing URL: ${(error as Error).message}` 
+            return {
+              url,
+              content: `Error processing URL: ${(error as Error).message}`
             };
           }
         })
       );
-      
+
       // Add batch results to the overall results
       for (const { url, content } of batchResults) {
         results[url] = content;
       }
-      
+
       // Force garbage collection if available (Node with --expose-gc flag)
       if (global.gc) {
         global.gc();
       }
-      
+
       // Small delay between batches to allow system to recover
       if (i + batchSize < urls.length) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-    
+
     return results;
   }
 }
@@ -422,11 +422,14 @@ export const createServer = (): Server => {
   const server = new Server(
     {
       name: "web-scout",
-      version: "1.3.0",
+      version: "1.4.0",
     },
     {
       capabilities: {
-        tools: {},
+        tools: {
+          DuckDuckGoWebSearch: true,
+          UrlContentExtractor: true
+        },
       },
     }
   );
@@ -435,7 +438,7 @@ export const createServer = (): Server => {
 
 // Tool handlers
 const server = createServer();
-server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     const { name, arguments: args } = request.params;
 
@@ -519,40 +522,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   }
 });
 
-interface RegisterToolsFunction {
-  (tools: Tool[]): void;
-}
+// Tools are registered through the server capabilities
 
-declare const registerTools: RegisterToolsFunction;
+// Register the ListToolsRequestSchema handler
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  const tools: Tool[] = [
+    {
+      name: ToolName.DUCKDUCKGOWEBSEARCH,
+      description: "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
+      inputSchema: zodToJsonSchema(z.object({
+        query: z.string(),
+        maxResults: z.number().optional(),
+      }).strict()) as ToolInput,
+    },
+    {
+      name: ToolName.URLCONTENTEXTRACTOR,
+      description: "Fetches and extracts content from a given webpage URL. Input the URL of the webpage you want to extract content from as a string using the url parameter. You can also input an array of URLs to fetch content from multiple pages at once.",
+      inputSchema: zodToJsonSchema(z.object({
+        url: z.union([z.string(), z.array(z.string())])
+      }).strict()) as ToolInput,
+    },
+  ];
 
-registerTools([
-  DuckDuckGoWebSearch,
-  UrlContentExtractor
-]);
-
-    // Tool handlers
-
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const tools: Tool[] = [
-      {
-        name: ToolName.DUCKDUCKGOWEBSEARCH,
-        description: "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
-        inputSchema: zodToJsonSchema(z.object({
-          query: z.string(),
-          maxResults: z.number().optional(),
-        }).strict()) as ToolInput,
-      },
-      {
-        name: ToolName.URLCONTENTEXTRACTOR,
-        description: "Fetches and extracts content from a given webpage URL. Input the URL of the webpage you want to extract content from as a string using the url parameter. You can also input an array of URLs to fetch content from multiple pages at once.",
-        inputSchema: zodToJsonSchema(z.object({
-          url: z.union([z.string(), z.array(z.string())])
-        }).strict()) as ToolInput,        
-      },
-    ];
-
-    return { tools };
-  });
+  return { tools };
+});
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
