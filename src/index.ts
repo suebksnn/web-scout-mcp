@@ -6,6 +6,7 @@ import {
   CallToolRequestSchema,
   ErrorCode,
   McpError,
+  ToolSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
@@ -14,9 +15,12 @@ import * as os from "os";
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs/promises";
 import * as path from "path";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Define the Context interface if not already defined
 interface Context {
+  info(message: string): Promise<void>;
   error(message: string): Promise<void>;
 }
 
@@ -61,21 +65,33 @@ const UrlContentExtractor: Tool = {
     required: ["url"]
   }
 };
+const ToolInputSchema = ToolSchema.shape.inputSchema;
+type ToolInput = z.infer<typeof ToolInputSchema>;
 
+enum ToolName {
+  DUCKDUCKGOWEBSEARCH = "DuckDuckGoWebSearch",
+  URLCONTENTEXTRACTOR = "UrlContentExtractor",
+}
 
 // Server implementation
-const server = new Server(
-  {
-    name: "web-scout",
-    description: "A web scout tool for searching and extracting content from the web.",
-    version: "1.0.0",
-  },
-  {
-    capabilities: {
-      tools: {DuckDuckGoWebSearch, UrlContentExtractor},      
+export const createServer = (): Server => {
+  const server = new Server(
+    {
+      name: "web-scout",
+      version: "1.0.0",
     },
-  },
-);
+    {
+      capabilities: {
+        prompts: {},
+        resources: {},
+        tools: {},
+        logging: {},
+        completions: {},
+      },
+    }
+  );
+  return server;
+};
 
 // Define interfaces for the data structures
 interface SearchResult {
@@ -169,7 +185,7 @@ class DuckDuckGoSearcher {
         kl: "",
       };
 
-      await ctx.error(`Searching DuckDuckGo for: ${query}`);
+      await ctx.info(`Searching DuckDuckGo for: ${query}`);
 
       const response = await axios.post(
         DuckDuckGoSearcher.BASE_URL,
@@ -221,7 +237,7 @@ class DuckDuckGoSearcher {
         }
       });
 
-      await ctx.error(`Successfully found ${results.length} results`);
+      await ctx.info(`Successfully found ${results.length} results`);
       return results;
 
     } catch (error) {
@@ -349,7 +365,7 @@ class WebContentFetcher {
     try {
       await this.rateLimiter.acquire();
 
-      await ctx.error(`Fetching content from: ${urlStr}`);
+      await ctx.info(`Fetching content from: ${urlStr}`);
 
       const response = await axios.get(urlStr, {
         headers: {
@@ -362,7 +378,7 @@ class WebContentFetcher {
 
       const text = await this.processHtml(response.data);
 
-      await ctx.error(`Successfully fetched and parsed content (${text.length} characters)`);
+      await ctx.info(`Successfully fetched and parsed content (${text.length} characters)`);
       return text;
 
     } catch (error) {
@@ -391,15 +407,15 @@ class WebContentFetcher {
       batchSize = 5; // Increase batch size if plenty of memory
     }
     
-    await ctx.error(`Processing ${urls.length} URLs in batches of ${batchSize}`);
+    await ctx.info(`Processing ${urls.length} URLs in batches of ${batchSize}`);
 
     // Process URLs in batches to manage memory
     for (let i = 0; i < urls.length; i += batchSize) {
       const batch = urls.slice(i, i + batchSize);
-      await ctx.error(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(urls.length/batchSize)}`);
+      await ctx.info(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(urls.length/batchSize)}`);
       
       // Process batch in parallel
-      const batchResults = await Promise.allSettled(
+      const batchResults = await Promise.all(
         batch.map(async (url) => {
           try {
             const content = await this.fetchAndParse(url, ctx);
@@ -413,22 +429,10 @@ class WebContentFetcher {
           }
         })
       );
-
-      // Collect results from fulfilled promises and handle rejections gracefully
-      for (const result of batchResults) {
-        if (result.status === "fulfilled") {
-          results[result.value.url] = result.value.content;
-        } else {
-          results[result.reason.url] = `Error processing URL: ${result.reason.message}`;
-        }
-      }
       
       // Add batch results to the overall results
-      for (const result of batchResults) {
-        if (result.status === "fulfilled") {
-          const { url, content } = result.value;
-          results[url] = content;
-        }
+      for (const { url, content } of batchResults) {
+        results[url] = content;
       }
       
       // Force garbage collection if available (Node with --expose-gc flag)
@@ -447,116 +451,115 @@ class WebContentFetcher {
 }
 
     // Tool handlers
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  console.error("Listing tools");
-  return { tools: [DuckDuckGoWebSearch, UrlContentExtractor] };
-});
+  const server = createServer();
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const tools: Tool[] = [
+      {
+        name: ToolName.DUCKDUCKGOWEBSEARCH,
+        description: "Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings. Input the keywords, question, or topic you want to search for using DuckDuckGo as your query. Input the maximum number of search entries you'd like to receive using maxResults - defaults to 10 if not provided.",
+        inputSchema: zodToJsonSchema(z.object({
+          query: z.string(),
+          maxResults: z.number().optional(),
+        }).strict()) as ToolInput,
+      },
+      {
+        name: ToolName.URLCONTENTEXTRACTOR,
+        description: "Fetches and extracts content from a given webpage URL. Input the URL of the webpage you want to extract content from as a string using the url parameter. You can also input an array of URLs to fetch content from multiple pages at once.",
+        inputSchema: zodToJsonSchema(z.object({
+          url: z.union([z.string(), z.array(z.string())])
+        }).strict()) as ToolInput,        
+      },
+    ];
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    try {
-      const name: string = request.params.name;
-      const args: Record<string, unknown> | undefined = request.params.arguments;
+    return { tools };
+  });
 
-      if (args === undefined) {
-        throw new McpError(ErrorCode.InvalidParams, "No arguments provided");
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+  try {
+    const { name, arguments: args } = request.params;
+
+    if (name === ToolName.DUCKDUCKGOWEBSEARCH) {
+      if (typeof args !== "object" || args === null) {
+        throw new McpError(ErrorCode.InvalidParams, "Invalid arguments provided");
       }
+      if (typeof args.query !== "string") {
+        throw new McpError(ErrorCode.InvalidParams, "Query must be a string");
+      }
+      const query = args.query;
+      const maxResults = typeof args.maxResults === "number" ? args.maxResults : 10;
 
-      // Validate the tool name
-      const validTools = ["DuckDuckGoWebSearch", "UrlContentExtractor"];
-      if (!validTools.includes(name)) {
+      const contextAdapter: Context = {
+        info: async (message: string) => console.info(message),
+        error: async (message: string) => console.error(message),
+      };
+      const searchResults = await new DuckDuckGoSearcher().search(query, contextAdapter, maxResults);
+      const result = new DuckDuckGoSearcher().formatResultsForLLM(searchResults);
+
+      return {
+        content: [{ type: "text", text: result }],
+        isError: false,
+      };
+    }
+
+    if (name === ToolName.URLCONTENTEXTRACTOR) {
+      if (typeof args !== "object" || args === null) {
         throw new McpError(
           ErrorCode.InvalidParams,
-          `Invalid tool name: ${name}. Valid tools are: ${validTools.join(", ")}`
+          "Invalid fetch_content arguments. Expected { url: string | string[] }"
+        );
+      }
+      if (typeof args !== "object" || args === null) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "Invalid fetch_content arguments. Expected { url: string | string[] }"
         );
       }
 
-      switch (name) {
-        case "DuckDuckGoWebSearch": {
-          if (typeof args.query !== "string") {
-            throw new McpError(
-              ErrorCode.InvalidParams,
-              "Invalid search arguments. Expected { query: string, maxResults?: number }"
-            );
-          }
-
-          const query = args.query;
-          const maxResults = typeof args.maxResults === "number" ? args.maxResults : 10;
-
-          const contextAdapter: Context = {
-            error: async (message: string) => console.error(message),
-          };
-          const searchResults = await new DuckDuckGoSearcher().search(query, contextAdapter, maxResults);
-          const result = new DuckDuckGoSearcher().formatResultsForLLM(searchResults);
-
-          return {
-            content: [{ type: "text", text: result }],
-            isError: false,
-          };
-        }
-
-        case "UrlContentExtractor": {
-          if (!("url" in args)) {
-            throw new McpError(
-              ErrorCode.InvalidParams,
-              "Invalid fetch_content arguments. Expected { url: string | string[] }"
-            );
-          }
-
-          const fetcher = new WebContentFetcher();
-          const contextAdapter: Context = {
-            error: async (message: string) => console.error(message),
-          };
-
-          if (typeof args.url === "string") {
-            const result = await fetcher.fetchAndParse(args.url, contextAdapter);
-            return {
-              content: [{ type: "text", text: result }],
-              isError: false,
-            };
-          } else if (Array.isArray(args.url)) {
-            const results = await fetcher.fetchMultipleUrls(args.url, contextAdapter);
-            return {
-              content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-              isError: false,
-            };
-          } else {
-            throw new McpError(
-              ErrorCode.InvalidParams,
-              "Invalid URL format. Expected string or array of strings."
-            );
-          }
-        }
-
-        default:
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Unhandled tool name: ${name}`
-          );
-      }
-    } catch (error) {
-      if (error instanceof McpError) {
+      const fetcher = new WebContentFetcher();
+      if (typeof args.url === "string") {
+        const contextAdapter: Context = {
+          info: async (message: string) => console.info(message),
+          error: async (message: string) => console.error(message),
+        };
+        const result = await fetcher.fetchAndParse(args.url, contextAdapter);
         return {
-          content: [
-            {
-              type: "text",
-              text: `MCP Error: ${error.message} (Code: ${error.code})`,
-            },
-          ],
-          isError: true,
+          content: [{ type: "text", text: result }],
+          isError: false,
+        };
+      } else if (Array.isArray(args.url)) {
+        const contextAdapter: Context = {
+          info: async (message: string) => console.info(message),
+          error: async (message: string) => console.error(message),
+        };
+        const results = await fetcher.fetchMultipleUrls(args.url, contextAdapter);
+        return {
+          content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+          isError: false,
         };
       } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-          isError: true,
-        };
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "Invalid URL format. Expected string or array of strings."
+        );
       }
     }
-  });
+
+    return {
+      content: [{ type: "text", text: `Unknown tool: ${name}` }],
+      isError: true,
+    };
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+});
 
 async function runServer() {
   const transport = new StdioServerTransport();
@@ -567,4 +570,5 @@ async function runServer() {
 runServer().catch((error) => {
   console.error("Error starting server:", error);
   process.exit(1);
-  });
+});
+
