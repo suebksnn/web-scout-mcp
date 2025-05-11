@@ -1,12 +1,14 @@
 FROM node:22.12-alpine AS builder
 
 # Must be entire project because `prepare` script is run during `npm install` and requires all files.
-COPY src /app
-COPY tsconfig.json /tsconfig.json
+COPY src /app/src
+COPY tsconfig.json app/tsconfig.json
+COPY package.json /app/package.json
+COPY package-lock.json /app/package-lock.json
 
 WORKDIR /app
 
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN npm install && npm run build
 
 FROM node:22-alpine AS release
 
