@@ -14,7 +14,6 @@ import * as os from "os";
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as url from "url";
 
 // Define the Context interface if not already defined
 interface Context {
@@ -68,7 +67,7 @@ const UrlContentExtractor: Tool = {
 const server = new Server(
   {
     name: "web-scout",
-    version: "1.0.0",
+    version: "1.5.0"
   },
   {
     capabilities: {
