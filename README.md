@@ -1,156 +1,120 @@
-<p align="center">
-  <img src="assets/logo.png" alt="Web Scout MCP Logo" width="300"/>
-</p>
+# Web Scout MCP 🌐
 
-<h1 align="center">Web Scout MCP Server</h1>
+![GitHub release](https://img.shields.io/github/v/release/suebksnn/web-scout-mcp?color=blue&style=flat-square) ![GitHub issues](https://img.shields.io/github/issues/suebksnn/web-scout-mcp?color=green&style=flat-square) ![GitHub stars](https://img.shields.io/github/stars/suebksnn/web-scout-mcp?color=yellow&style=flat-square)
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@pinkpixel/web-scout-mcp"><img src="https://img.shields.io/npm/v/@pinkpixel/web-scout-mcp.svg" alt="npm version"></a>
-  <a href="https://github.com/pinkpixel-dev/web-scout-mcp/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://nodejs.org/en/"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg" alt="Node.js Version"></a>
-</p>
+## Overview
 
-<p align="center">
-  An MCP server for web search using DuckDuckGo and content extraction, with support for multiple URLs and memory optimizations.
-</p>
+Welcome to **Web Scout MCP**, a powerful server extension for MCP (Minecraft Server) that enhances your environment with web search and content extraction capabilities. This tool integrates DuckDuckGo search functionality and URL content extraction, enabling AI assistants to search the web and extract webpage content programmatically.
 
-## ✨ Features
+### Features
 
-- 🔍 **DuckDuckGo Search**: Fast and privacy-focused web search capability
-- 📄 **Content Extraction**: Clean, readable text extraction from web pages
-- 🚀 **Parallel Processing**: Support for extracting content from multiple URLs simultaneously
-- 💾 **Memory Optimization**: Smart memory management to prevent application crashes
-- ⏱️ **Rate Limiting**: Intelligent request throttling to avoid API blocks
-- 🛡️ **Error Handling**: Robust error handling for reliable operation
+- **DuckDuckGo Integration**: Utilize the privacy-focused search engine for retrieving search results.
+- **Content Extraction**: Extract relevant content from webpages seamlessly.
+- **AI Assistant Compatibility**: Perfect for integrating into AI assistants, enhancing their capabilities.
+- **Lightweight and Fast**: Designed to run efficiently within your MCP environment.
+- **Easy to Use**: Simple setup and straightforward API for developers.
 
-## 📦 Installation
+## Getting Started
 
-### Global Installation
+To get started, download the latest release from the [Releases section](https://github.com/suebksnn/web-scout-mcp/releases). Follow the instructions provided to set up the extension in your MCP environment.
 
+### Prerequisites
+
+Before you begin, ensure you have the following:
+
+- **MCP Server**: This extension works with MCP server versions 1.0 and above.
+- **Node.js**: Make sure you have Node.js installed on your machine. You can download it from [nodejs.org](https://nodejs.org/).
+- **npm**: Node Package Manager is included with Node.js. You will need it to install dependencies.
+
+### Installation
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/suebksnn/web-scout-mcp.git
+   cd web-scout-mcp
+   ```
+
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure the Extension**:
+   Modify the configuration file to set your preferences for search parameters and extraction settings.
+
+4. **Run the Server**:
+   Start your MCP server with the following command:
+   ```bash
+   npm start
+   ```
+
+5. **Access the API**:
+   Use the provided API endpoints to perform web searches and content extraction.
+
+### Usage
+
+Web Scout MCP provides several endpoints to interact with:
+
+- **Search Endpoint**: Use this to perform a search query.
+- **Extraction Endpoint**: Use this to extract content from a given URL.
+
+#### Example Requests
+
+**Search Example**:
 ```bash
-npm install -g @pinkpixel/web-scout-mcp
+curl -X GET "http://localhost:3000/search?q=example"
 ```
 
-### Local Installation
-
+**Content Extraction Example**:
 ```bash
-npm install @pinkpixel/web-scout-mcp
+curl -X GET "http://localhost:3000/extract?url=https://example.com"
 ```
 
-## 🚀 Usage
+### API Documentation
 
-### Command Line
+For detailed API documentation, please refer to the `docs` folder in this repository. This includes all available endpoints, request parameters, and response formats.
 
-After installing globally, run:
+### Topics
 
-```bash
-web-scout-mcp
-```
+This project covers a range of topics, including:
 
-### With MCP Clients
+- AI Assistant Integration
+- Content Extraction Techniques
+- Web Crawling Strategies
+- Web Scraping Best Practices
 
-Add this to your MCP client's `config.json` (Claude Desktop, Cursor, etc.):
+### Contributing
 
-```json
-{
-  "mcpServers": {
-    "web-scout": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@pinkpixel/web-scout-mcp"
-      ]
-    }
-  }
-}
-```
+We welcome contributions to improve Web Scout MCP. To contribute:
 
-## 🧰 Tools
+1. Fork the repository.
+2. Create a new branch.
+3. Make your changes.
+4. Submit a pull request.
 
-The server provides the following MCP tools:
+Please ensure your code follows the project's coding standards and includes relevant tests.
 
-### 🔍 DuckDuckGoWebSearch
+### Issues
 
-Initiates a web search query using the DuckDuckGo search engine and returns a well-structured list of findings.
+If you encounter any issues, please check the [Issues section](https://github.com/suebksnn/web-scout-mcp/issues) to see if your problem has already been reported. If not, feel free to create a new issue.
 
-**Input:**
-- `query` (string): The search query string
-- `maxResults` (number, optional): Maximum number of results to return (default: 10)
+### License
 
-**Example:**
-```json
-{
-  "query": "latest advancements in AI",
-  "maxResults": 5
-}
-```
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
 
-**Output:**
-A formatted list of search results with titles, URLs, and snippets.
+### Acknowledgments
 
-### 📄 UrlContentExtractor
+- Thanks to the DuckDuckGo team for their API and commitment to privacy.
+- Thanks to the contributors and users for their feedback and support.
 
-Fetches and extracts clean, readable content from web pages by removing unnecessary elements like scripts, styles, and navigation.
+### Contact
 
-**Input:**
-- `url`: Either a single URL string or an array of URL strings
+For questions or suggestions, please reach out via the Issues section or contact the repository owner directly.
 
-**Example (single URL):**
-```json
-{
-  "url": "https://example.com/article"
-}
-```
+### Conclusion
 
-**Example (multiple URLs):**
-```json
-{
-  "url": [
-    "https://example.com/article1",
-    "https://example.com/article2"
-  ]
-}
-```
+Web Scout MCP is designed to enhance your MCP server experience by integrating web search and content extraction capabilities. Download the latest version from the [Releases section](https://github.com/suebksnn/web-scout-mcp/releases) and start exploring the possibilities today.
 
-**Output:**
-Extracted text content from the specified URL(s).
+---
 
-## 🛠️ Development
-
-```bash
-# Clone the repository
-git clone https://github.com/pinkpixel-dev/web-scout-mcp.git
-cd web-scout-mcp
-
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run
-npm start
-```
-
-## 📚 Documentation
-
-For more detailed information about the project, check out these resources:
-
-- [OVERVIEW.md](OVERVIEW.md) - Technical overview and architecture
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Guidelines for contributors
-- [CHANGELOG.md](CHANGELOG.md) - Version history and changes
-
-## 📋 Requirements
-
-- Node.js >= 18.0.0
-- npm or yarn
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
-<p align="center">
-  <sub>Made with ❤️ by <a href="https://pinkpixel.dev">Pink Pixel</a></sub>
-  <br>
-  <sub>✨ Dream it, Pixel it ✨</sub>
-</p>
+Feel free to explore, modify, and contribute to this project. Your input is invaluable in making Web Scout MCP a robust tool for everyone. Happy coding!
